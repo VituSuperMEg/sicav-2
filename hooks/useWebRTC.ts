@@ -128,6 +128,8 @@ export function useWebRTC(socket: any) {
       console.log('📡 Stream recebido de:', userId);
       console.log('   - Tracks de áudio:', remoteStream.getAudioTracks().length);
       console.log('   - Tracks de vídeo:', remoteStream.getVideoTracks().length);
+      console.log('   - Stream ativo:', remoteStream.active);
+      console.log('   - Stream ID:', remoteStream.id);
       
       setPeers((prev) => {
         const updated = new Map(prev);

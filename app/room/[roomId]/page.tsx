@@ -106,8 +106,11 @@ export default function RoomPage() {
 
   // Handle toggle audio - REALMENTE ativa o microfone
   const handleToggleAudio = async () => {
+    console.log('🎤 handleToggleAudio chamado!');
     const store = useRoomStore.getState();
     const newAudioState = !audioEnabled;
+    console.log('   - Estado atual do áudio:', audioEnabled);
+    console.log('   - Novo estado:', newAudioState);
     
     if (newAudioState) {
       console.log('🎤 Ativando microfone...');
@@ -115,15 +118,21 @@ export default function RoomPage() {
       if (stream) {
         console.log('✅ Microfone ativado!');
         console.log('📊 Usuários na sala:', store.users.size);
+        console.log('🎤 Stream de áudio obtido:');
+        console.log('   - Tracks de áudio:', stream.getAudioTracks().length);
+        console.log('   - Stream ativo:', stream.active);
+        console.log('   - Stream ID:', stream.id);
         
         store.toggleAudio(); // Atualiza o estado visual
+        console.log('   - Estado após toggle:', useRoomStore.getState().audioSettings.enabled);
         
         // Cria peers com todos os usuários conectados OU recria peers existentes com áudio
+        console.log('🔄 Iniciando criação/recriação de peers...');
         store.users.forEach((user) => {
           console.log('👤 Processando usuário:', user.name, user.id);
-          console.log('   - Já tenho peer?', peers.has(user.id));
+          console.log('   - Já tenho peer?', peersRef.current.has(user.id));
           
-          const existingPeer = peers.get(user.id);
+          const existingPeer = peersRef.current.get(user.id);
           
           if (existingPeer) {
             console.log('🔄 Peer já existe, destruindo e recriando com áudio...');
@@ -146,25 +155,33 @@ export default function RoomPage() {
           });
           
           try {
-            const peer = createPeer(user.id, true, stream);
+            console.log('⚡ CHAMANDO createPeer agora...');
+            console.log('   - createPeerRef.current é função?', typeof createPeerRef.current);
+            console.log('   - Parâmetros:', { userId: user.id, initiator: true, hasStream: !!stream });
+            const peer = createPeerRef.current(user.id, true, stream);
             console.log('✅ createPeer retornou:', peer);
+            console.log('   - Peer válido?', !!peer);
+            console.log('   - Peer tem stream?', !!stream);
           } catch (err) {
             console.error('❌ ERRO ao chamar createPeer:', err);
           }
         });
         
+        console.log('✅ Processamento de peers concluído!');
         if (store.users.size === 0) {
+          console.log('⚠️ Nenhum usuário na sala para criar peers');
         }
       } else {
         console.error('❌ Falha ao ativar microfone');
       }
     } else {
-      console.log('🔇 Desativando microfone...');
-      store.toggleAudio(); // Atualiza o estado visual
-      
-      // Para todos os tracks de áudio do stream local
-      // TODO: implementar parada de tracks e remoção de peers
-    }
+        console.log('🔇 Desativando microfone...');
+        store.toggleAudio(); // Atualiza o estado visual
+        
+        // Para todos os tracks de áudio do stream local
+        // TODO: implementar parada de tracks e remoção de peers
+        console.log('   - Estado após toggle:', useRoomStore.getState().audioSettings.enabled);
+      }
   };
 
   // Handle toggle video - REALMENTE ativa a câmera
