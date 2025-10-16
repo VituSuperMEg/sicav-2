@@ -83,13 +83,13 @@ export default function RoomPage() {
     const store = useRoomStore.getState();
     const newAudioState = !audioSettings.enabled;
     
-    store.toggleAudio(); // Atualiza o estado visual
-    
     if (newAudioState) {
       console.log('🎤 Ativando microfone...');
       const stream = await getLocalStream(true, videoSettings.enabled);
       if (stream) {
         console.log('✅ Microfone ativado!');
+        store.toggleAudio(); // Atualiza o estado visual
+        
         // Cria peers com todos os usuários conectados
         const users = store.users;
         users.forEach((user) => {
@@ -100,12 +100,13 @@ export default function RoomPage() {
         });
       } else {
         console.error('❌ Falha ao ativar microfone');
-        store.toggleAudio(); // Reverte o estado
       }
     } else {
       console.log('🔇 Desativando microfone...');
-      // Para todos os tracks de áudio
-      const stream = await getLocalStream(false, videoSettings.enabled);
+      store.toggleAudio(); // Atualiza o estado visual
+      
+      // Para todos os tracks de áudio do stream local
+      // TODO: implementar parada de tracks e remoção de peers
     }
   };
 
@@ -114,13 +115,13 @@ export default function RoomPage() {
     const store = useRoomStore.getState();
     const newVideoState = !videoSettings.enabled;
     
-    store.toggleVideo(); // Atualiza o estado visual
-    
     if (newVideoState) {
       console.log('📹 Ativando vídeo...');
       const stream = await getLocalStream(audioSettings.enabled, true);
       if (stream) {
         console.log('✅ Vídeo ativado!');
+        store.toggleVideo(); // Atualiza o estado visual
+        
         // Cria peers com todos os usuários conectados
         const users = store.users;
         users.forEach((user) => {
@@ -131,11 +132,13 @@ export default function RoomPage() {
         });
       } else {
         console.error('❌ Falha ao ativar vídeo');
-        store.toggleVideo(); // Reverte o estado
       }
     } else {
-      console.log('🔇 Desativando vídeo...');
-      const stream = await getLocalStream(audioSettings.enabled, false);
+      console.log('🎥 Desativando vídeo...');
+      store.toggleVideo(); // Atualiza o estado visual
+      
+      // Para todos os tracks de vídeo do stream local
+      // TODO: implementar parada de tracks
     }
   };
 

@@ -49,6 +49,12 @@ export function useWebRTC(socket: any) {
   // Get local media stream
   const getLocalStream = async (audio = true, video = false) => {
     try {
+      // Pelo menos um deve ser true
+      if (!audio && !video) {
+        console.warn('⚠️ Pelo menos um de audio ou video deve ser true');
+        return null;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: audio ? {
           echoCancellation: true,
