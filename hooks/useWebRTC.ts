@@ -33,11 +33,27 @@ export function useWebRTC(socket: any) {
 
     // Listen for user leaving to cleanup audio elements
     socket.on('user:left', (userId: string) => {
-      console.log('👋 Usuário saiu:', userId, '- Limpando áudio...');
+      console.log('👋 Usuário saiu:', userId, '- Limpando áudio e peer...');
+      
+      // Remove audio element
       const audioElement = document.getElementById(`audio-${userId}`);
       if (audioElement) {
         audioElement.remove();
+        console.log('   ✅ Elemento de áudio removido');
       }
+      
+      // Destroy and remove peer
+      setPeers((prev) => {
+        const updated = new Map(prev);
+        const peerConnection = updated.get(userId);
+        if (peerConnection) {
+          peerConnection.peer.destroy();
+          console.log('   ✅ Peer destruído');
+          updated.delete(userId);
+          console.log('   ✅ Peer removido do mapa');
+        }
+        return updated;
+      });
     });
 
     return () => {
