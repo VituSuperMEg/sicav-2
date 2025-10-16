@@ -100,33 +100,38 @@ export default function RoomPage() {
         
         store.toggleAudio(); // Atualiza o estado visual
         
-        // Cria peers com todos os usuários conectados
+        // Cria peers com todos os usuários conectados OU recria peers existentes com áudio
         store.users.forEach((user) => {
           console.log('👤 Processando usuário:', user.name, user.id);
           console.log('   - Já tenho peer?', peers.has(user.id));
           
-          console.log('🔍 Verificando peer para', user.name, '- Existe?', peers.has(user.id));
-          console.log('   createPeer é:', typeof createPeer);
-          console.log('   createPeer função:', createPeer);
+          const existingPeer = peers.get(user.id);
           
-          if (!peers.has(user.id)) {
-            console.log('🔗 Criando peer INICIADOR com', user.name);
-            console.log('   Chamando createPeer com:', {
-              userId: user.id,
-              initiator: true,
-              hasStream: !!stream,
-              audioTracks: stream?.getAudioTracks().length
-            });
-            
-            console.log('⚡ PRESTES A CHAMAR createPeer...');
+          if (existingPeer) {
+            console.log('🔄 Peer já existe, destruindo e recriando com áudio...');
             try {
-              const peer = createPeer(user.id, true, stream);
-              console.log('✅ createPeer retornou:', peer);
+              // Destroi o peer existente
+              existingPeer.peer.destroy();
+              console.log('   ♻️ Peer antigo destruído');
             } catch (err) {
-              console.error('❌ ERRO ao chamar createPeer:', err);
+              console.error('   ⚠️ Erro ao destruir peer:', err);
             }
-          } else {
-            console.log('⏭️ Peer já existe, pulando');
+          }
+          
+          // Cria (ou recria) o peer com o stream de áudio
+          console.log('🔗 Criando peer INICIADOR com', user.name);
+          console.log('   Chamando createPeer com:', {
+            userId: user.id,
+            initiator: true,
+            hasStream: !!stream,
+            audioTracks: stream?.getAudioTracks().length
+          });
+          
+          try {
+            const peer = createPeer(user.id, true, stream);
+            console.log('✅ createPeer retornou:', peer);
+          } catch (err) {
+            console.error('❌ ERRO ao chamar createPeer:', err);
           }
         });
         

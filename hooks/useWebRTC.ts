@@ -143,10 +143,15 @@ export function useWebRTC(socket: any) {
   const handleSignal = (userId: string, signal: any) => {
     console.log(`📥 Recebeu sinal de ${userId}:`, signal.type);
     
-    let peer = peers.get(userId)?.peer;
+    let peerConnection = peers.get(userId);
+    let peer = peerConnection?.peer;
     
     if (!peer) {
       console.log(`   ⚠️ Peer não existe, criando como RECEPTOR para ${userId}`);
+      console.log(`   Stream local disponível:`, !!localStreamRef.current);
+      if (localStreamRef.current) {
+        console.log(`   Tracks de áudio no stream local:`, localStreamRef.current.getAudioTracks().length);
+      }
       peer = createPeer(userId, false, localStreamRef.current || undefined);
     } else {
       console.log(`   ✅ Peer já existe, processando sinal`);
@@ -179,8 +184,13 @@ export function useWebRTC(socket: any) {
       audioElement = document.createElement('audio');
       audioElement.id = `audio-${userId}`;
       audioElement.autoplay = true;
-      audioElement.srcObject = stream;
       document.body.appendChild(audioElement);
+    }
+    
+    // Sempre atualiza o srcObject com o stream mais recente
+    if (audioElement.srcObject !== stream) {
+      console.log('🔄 Atualizando srcObject do elemento de áudio para', otherUser.name);
+      audioElement.srcObject = stream;
     }
 
     // Calculate volume based on distance
