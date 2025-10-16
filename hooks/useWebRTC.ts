@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import SimplePeer from 'simple-peer';
 import { useRoomStore } from '@/store/useRoomStore';
 import { calculateAudioVolume, isInProximity } from '@/lib/utils';
@@ -13,7 +13,9 @@ export function useWebRTC(socket: any) {
   console.log('🔌 useWebRTC hook inicializado');
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
-  const { currentUser, users, audioSettings } = useRoomStore();
+  const currentUser = useRoomStore((state) => state.currentUser);
+  const users = useRoomStore((state) => state.users);
+  const audioSettings = useRoomStore((state) => state.audioSettings);
   
   console.log('   Socket disponível?', !!socket);
   console.log('   Peers atuais:', peers.size);
@@ -54,7 +56,7 @@ export function useWebRTC(socket: any) {
   }, [socket, currentUser]);
 
   // Get local media stream
-  const getLocalStream = async (audio = true, video = false) => {
+  const getLocalStream = useCallback(async (audio = true, video = false) => {
     try {
       // Pelo menos um deve ser true
       if (!audio && !video) {
@@ -80,10 +82,10 @@ export function useWebRTC(socket: any) {
       console.error('Error getting local stream:', error);
       return null;
     }
-  };
+  }, []);
 
   // Create peer connection
-  const createPeer = (userId: string, initiator: boolean, stream?: MediaStream) => {
+  const createPeer = useCallback((userId: string, initiator: boolean, stream?: MediaStream) => {
     console.log(`🔧 Criando peer para ${userId}:`);
     console.log(`   - Iniciador: ${initiator}`);
     console.log(`   - Tem stream: ${!!stream}`);
@@ -119,7 +121,54 @@ export function useWebRTC(socket: any) {
       
       // Apply spatial audio IMEDIATAMENTE
       setTimeout(() => {
-        updateSpatialAudio(userId, remoteStream);
+        const users = useRoomStore.getState().users;
+        const currentUser = useRoomStore.getState().currentUser;
+        const audioSettings = useRoomStore.getState().audioSettings;
+        
+        const otherUser = users.get(userId);
+        if (!otherUser || !currentUser) return;
+
+        const audioTracks = remoteStream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          console.log('❌ Nenhum track de áudio encontrado para', userId);
+          return;
+        }
+
+        // Procura ou cria elemento de áudio para este usuário
+        let audioElement = document.getElementById(`audio-${userId}`) as HTMLAudioElement;
+        
+        if (!audioElement) {
+          console.log('🔊 Criando elemento de áudio para', otherUser.name);
+          audioElement = document.createElement('audio');
+          audioElement.id = `audio-${userId}`;
+          audioElement.autoplay = true;
+          document.body.appendChild(audioElement);
+        }
+        
+        // Sempre atualiza o srcObject com o stream mais recente
+        if (audioElement.srcObject !== remoteStream) {
+          console.log('🔄 Atualizando srcObject do elemento de áudio para', otherUser.name);
+          audioElement.srcObject = remoteStream;
+        }
+
+        // Calculate volume based on distance
+        const inProximity = isInProximity(
+          currentUser.position,
+          otherUser.position,
+          audioSettings.proximityRadius
+        );
+
+        if (inProximity) {
+          const distance = Math.sqrt(
+            Math.pow(currentUser.position.x - otherUser.position.x, 2) +
+            Math.pow(currentUser.position.y - otherUser.position.y, 2)
+          );
+          const volume = calculateAudioVolume(distance, audioSettings.proximityRadius);
+          audioElement.volume = volume * audioSettings.volume;
+          console.log(`🔊 Áudio de ${otherUser.name}: volume=${Math.round(volume * 100)}%, distância=${Math.round(distance)}px`);
+        } else {
+          audioElement.volume = 0;
+        }
       }, 100);
     });
 
@@ -138,7 +187,7 @@ export function useWebRTC(socket: any) {
     setPeers((prev) => new Map(prev).set(userId, { userId, peer }));
     
     return peer;
-  };
+  }, [socket]);
 
   const handleSignal = (userId: string, signal: any) => {
     console.log(`📥 Recebeu sinal de ${userId}:`, signal.type);
@@ -166,7 +215,11 @@ export function useWebRTC(socket: any) {
   };
 
   // Update spatial audio based on distance
-  const updateSpatialAudio = (userId: string, stream: MediaStream) => {
+  const updateSpatialAudio = useCallback((userId: string, stream: MediaStream) => {
+    const users = useRoomStore.getState().users;
+    const currentUser = useRoomStore.getState().currentUser;
+    const audioSettings = useRoomStore.getState().audioSettings;
+    
     const otherUser = users.get(userId);
     if (!otherUser || !currentUser) return;
 
@@ -211,7 +264,7 @@ export function useWebRTC(socket: any) {
     } else {
       audioElement.volume = 0;
     }
-  };
+  }, []);
 
   // Start screen sharing
   const startScreenShare = async () => {

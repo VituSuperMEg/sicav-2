@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRoomStore } from '@/store/useRoomStore';
 import { useSocket } from '@/hooks/useSocket';
@@ -32,6 +32,18 @@ export default function RoomPage() {
     createPeer,
     peers,
   } = webRTCHook;
+  
+  // Refs para evitar loop infinito no useEffect
+  const createPeerRef = useRef(createPeer);
+  const getLocalStreamRef = useRef(getLocalStream);
+  const peersRef = useRef(peers);
+  
+  // Atualiza refs sempre que as funções mudam
+  useEffect(() => {
+    createPeerRef.current = createPeer;
+    getLocalStreamRef.current = getLocalStream;
+    peersRef.current = peers;
+  });
   
   console.log('🔍 Hook WebRTC retornou:', {
     hasGetLocalStream: !!getLocalStream,
@@ -202,18 +214,18 @@ export default function RoomPage() {
       
       // Cria peers com todos os outros usuários na sala
       users.forEach(user => {
-        if (user.id === currentUser.id) {
+        if (user.id === currentUser?.id) {
           console.log('⏭️ Ignorando usuário (sou eu):', user.name);
           return;
         }
         
-        if (peers.has(user.id)) {
+        if (peersRef.current.has(user.id)) {
           console.log('⏭️ Peer já existe para:', user.name);
           return;
         }
         
         console.log('🔗 Criando peer INICIADOR para usuário existente:', user.name);
-        getLocalStream(true, videoSettings.enabled).then(stream => {
+        getLocalStreamRef.current(true, videoSettings.enabled).then(stream => {
           if (stream) {
             console.log('   📡 Stream obtido, chamando createPeer...');
             console.log('   Params:', {
@@ -222,7 +234,7 @@ export default function RoomPage() {
               hasStream: !!stream,
               audioTracks: stream?.getAudioTracks().length
             });
-            const peer = createPeer(user.id, true, stream);
+            const peer = createPeerRef.current(user.id, true, stream);
             console.log('   createPeer retornou:', peer);
           } else {
             console.error('   ❌ Falha ao obter stream');
@@ -234,16 +246,16 @@ export default function RoomPage() {
     // Handler quando um novo usuário entra
     const handleUserJoined = (user: User) => {
       console.log('🆕 Evento user:joined recebido:', user.name, user.id);
-      console.log('   - Meu ID:', currentUser.id);
+      console.log('   - Meu ID:', currentUser?.id);
       console.log('   - Áudio ativado?', audioSettings.enabled);
-      console.log('   - Já tenho peer?', peers.has(user.id));
+      console.log('   - Já tenho peer?', peersRef.current.has(user.id));
       
-      if (user.id === currentUser.id) {
+      if (user.id === currentUser?.id) {
         console.log('⏭️ Ignorando - sou eu mesmo');
         return;
       }
       
-      if (peers.has(user.id)) {
+      if (peersRef.current.has(user.id)) {
         console.log('⏭️ Ignorando - peer já existe');
         return;
       }
@@ -256,7 +268,7 @@ export default function RoomPage() {
       
       console.log('✅ Criando peer INICIADOR para:', user.name);
       // Pega o stream local atual e cria peer
-      getLocalStream(true, videoSettings.enabled).then(stream => {
+      getLocalStreamRef.current(true, videoSettings.enabled).then(stream => {
         if (stream) {
           console.log('📡 Stream local obtido, criando peer...');
           console.log('   Params:', {
@@ -265,7 +277,7 @@ export default function RoomPage() {
             hasStream: !!stream,
             audioTracks: stream?.getAudioTracks().length
           });
-          const peer = createPeer(user.id, true, stream);
+          const peer = createPeerRef.current(user.id, true, stream);
           console.log('   createPeer retornou:', peer);
         } else {
           console.error('❌ Falha ao obter stream local');
@@ -282,18 +294,18 @@ export default function RoomPage() {
       socket.off('users:update', handleUsersUpdate);
       socket.off('user:joined', handleUserJoined);
     };
-  }, [socket, currentUser, audioSettings.enabled, videoSettings.enabled, peers, createPeer, getLocalStream]);
+  }, [socket, currentUser, audioSettings.enabled, videoSettings.enabled]);
 
   // Update spatial audio when users move
   useEffect(() => {
     const users = useRoomStore.getState().users;
     users.forEach((user) => {
-      const peerConnection = peers.get(user.id);
+      const peerConnection = peersRef.current.get(user.id);
       if (peerConnection?.stream) {
         updateSpatialAudio(user.id, peerConnection.stream);
       }
     });
-  }, [currentUser?.position, peers, updateSpatialAudio]);
+  }, [currentUser?.position, updateSpatialAudio]);
 
   if (!currentUser) {
     return (

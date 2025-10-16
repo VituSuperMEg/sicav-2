@@ -6,14 +6,7 @@ import { SOCKET_EVENTS } from '@/lib/constants';
 
 export function useSocket(roomId: string | null) {
   const socketRef = useRef<Socket | null>(null);
-  const { 
-    currentUser, 
-    addUser, 
-    removeUser, 
-    updateUserPosition,
-    setUsers,
-    setConnected 
-  } = useRoomStore();
+  const currentUser = useRoomStore((state) => state.currentUser);
 
   useEffect(() => {
     if (!roomId || !currentUser) return;
@@ -28,7 +21,7 @@ export function useSocket(roomId: string | null) {
 
     socket.on('connect', () => {
       console.log('Connected to server');
-      setConnected(true);
+      useRoomStore.getState().setConnected(true);
       
       // Emit user joined event
       socket.emit(SOCKET_EVENTS.USER_JOINED, currentUser);
@@ -36,34 +29,34 @@ export function useSocket(roomId: string | null) {
 
     socket.on('disconnect', () => {
       console.log('Disconnected from server');
-      setConnected(false);
+      useRoomStore.getState().setConnected(false);
     });
 
     // Listen for other users updates
     socket.on(SOCKET_EVENTS.USERS_UPDATE, (users: User[]) => {
-      setUsers(users.filter(u => u.id !== currentUser.id));
+      useRoomStore.getState().setUsers(users.filter(u => u.id !== currentUser.id));
     });
 
     socket.on(SOCKET_EVENTS.USER_JOINED, (user: User) => {
       if (user.id !== currentUser.id) {
-        addUser(user);
+        useRoomStore.getState().addUser(user);
       }
     });
 
     socket.on(SOCKET_EVENTS.USER_LEFT, (userId: string) => {
-      removeUser(userId);
+      useRoomStore.getState().removeUser(userId);
     });
 
     socket.on(SOCKET_EVENTS.USER_MOVED, ({ userId, position }: { userId: string; position: { x: number; y: number } }) => {
       if (userId !== currentUser.id) {
-        updateUserPosition(userId, position);
+        useRoomStore.getState().updateUserPosition(userId, position);
       }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [roomId, currentUser, addUser, removeUser, updateUserPosition, setUsers, setConnected]);
+  }, [roomId, currentUser]);
 
   const emitMove = (position: { x: number; y: number }) => {
     if (socketRef.current && currentUser) {
