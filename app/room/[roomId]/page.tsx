@@ -99,7 +99,14 @@ export default function RoomPage() {
           
           if (!peers.has(user.id)) {
             console.log('🔗 Criando peer INICIADOR com', user.name);
-            createPeer(user.id, true, stream);
+            console.log('   Chamando createPeer com:', {
+              userId: user.id,
+              initiator: true,
+              hasStream: !!stream,
+              audioTracks: stream?.getAudioTracks().length
+            });
+            const peer = createPeer(user.id, true, stream);
+            console.log('   createPeer retornou:', peer);
           } else {
             console.log('⏭️ Peer já existe, pulando');
           }
@@ -186,7 +193,17 @@ export default function RoomPage() {
         console.log('🔗 Criando peer INICIADOR para usuário existente:', user.name);
         getLocalStream(true, videoSettings.enabled).then(stream => {
           if (stream) {
-            createPeer(user.id, true, stream);
+            console.log('   📡 Stream obtido, chamando createPeer...');
+            console.log('   Params:', {
+              userId: user.id,
+              initiator: true,
+              hasStream: !!stream,
+              audioTracks: stream?.getAudioTracks().length
+            });
+            const peer = createPeer(user.id, true, stream);
+            console.log('   createPeer retornou:', peer);
+          } else {
+            console.error('   ❌ Falha ao obter stream');
           }
         });
       });
@@ -220,7 +237,14 @@ export default function RoomPage() {
       getLocalStream(true, videoSettings.enabled).then(stream => {
         if (stream) {
           console.log('📡 Stream local obtido, criando peer...');
-          createPeer(user.id, true, stream);
+          console.log('   Params:', {
+            userId: user.id,
+            initiator: true,
+            hasStream: !!stream,
+            audioTracks: stream?.getAudioTracks().length
+          });
+          const peer = createPeer(user.id, true, stream);
+          console.log('   createPeer retornou:', peer);
         } else {
           console.error('❌ Falha ao obter stream local');
         }

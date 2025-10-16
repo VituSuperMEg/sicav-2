@@ -10,9 +10,13 @@ interface PeerConnection {
 }
 
 export function useWebRTC(socket: any) {
+  console.log('🔌 useWebRTC hook inicializado');
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const { currentUser, users, audioSettings } = useRoomStore();
+  
+  console.log('   Socket disponível?', !!socket);
+  console.log('   Peers atuais:', peers.size);
 
   useEffect(() => {
     if (!socket || !currentUser) return;
