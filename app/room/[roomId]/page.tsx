@@ -144,24 +144,45 @@ export default function RoomPage() {
 
   // Quando um novo usuário entra, cria peer automaticamente SE o áudio estiver ativado
   useEffect(() => {
-    if (!socket || !currentUser || !audioSettings.enabled) return;
+    if (!socket || !currentUser) {
+      console.log('⏸️ Socket ou currentUser não disponível');
+      return;
+    }
+
+    if (!audioSettings.enabled) {
+      console.log('🔇 Áudio desativado, não criando peers automaticamente');
+      return;
+    }
 
     const handleUserJoined = (user: User) => {
+      console.log('🆕 Evento user:joined recebido:', user.name, user.id);
+      console.log('   - Meu ID:', currentUser.id);
+      console.log('   - Já tenho peer?', peers.has(user.id));
+      
       if (user.id !== currentUser.id && !peers.has(user.id)) {
-        console.log('🆕 Novo usuário entrou:', user.name, '- Criando peer...');
+        console.log('✅ Criando peer INICIADOR para:', user.name);
         // Pega o stream local atual e cria peer
         getLocalStream(true, videoSettings.enabled).then(stream => {
           if (stream) {
+            console.log('📡 Stream local obtido, criando peer...');
             createPeer(user.id, true, stream);
+          } else {
+            console.error('❌ Falha ao obter stream local');
           }
         });
+      } else if (user.id === currentUser.id) {
+        console.log('⏭️ Ignorando - sou eu mesmo');
+      } else if (peers.has(user.id)) {
+        console.log('⏭️ Ignorando - peer já existe');
       }
     };
 
-    socket.on('user-joined', handleUserJoined);
+    console.log('👂 Escutando evento user:joined...');
+    socket.on('user:joined', handleUserJoined);
 
     return () => {
-      socket.off('user-joined', handleUserJoined);
+      console.log('🔇 Parando de escutar user:joined');
+      socket.off('user:joined', handleUserJoined);
     };
   }, [socket, currentUser, audioSettings.enabled, videoSettings.enabled, peers, createPeer, getLocalStream]);
 

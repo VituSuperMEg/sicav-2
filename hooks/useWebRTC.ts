@@ -23,7 +23,7 @@ export function useWebRTC(socket: any) {
     });
 
     // Listen for user leaving to cleanup audio elements
-    socket.on('user-left', (userId: string) => {
+    socket.on('user:left', (userId: string) => {
       console.log('👋 Usuário saiu:', userId, '- Limpando áudio...');
       const audioElement = document.getElementById(`audio-${userId}`);
       if (audioElement) {
@@ -33,7 +33,7 @@ export function useWebRTC(socket: any) {
 
     return () => {
       socket.off('signal');
-      socket.off('user-left');
+      socket.off('user:left');
       // Cleanup peers
       peers.forEach(({ peer, userId }) => {
         peer.destroy();
