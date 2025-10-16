@@ -17,8 +17,11 @@ export function useWebRTC(socket: any) {
   useEffect(() => {
     if (!socket || !currentUser) return;
 
+    console.log('🎧 Começando a escutar sinais WebRTC...');
+
     // Listen for WebRTC signals
     socket.on('signal', ({ userId, signal }: { userId: string; signal: any }) => {
+      console.log(`🔔 Evento 'signal' recebido do socket para userId: ${userId}`);
       handleSignal(userId, signal);
     });
 
@@ -77,6 +80,11 @@ export function useWebRTC(socket: any) {
 
   // Create peer connection
   const createPeer = (userId: string, initiator: boolean, stream?: MediaStream) => {
+    console.log(`🔧 Criando peer para ${userId}:`);
+    console.log(`   - Iniciador: ${initiator}`);
+    console.log(`   - Tem stream: ${!!stream}`);
+    console.log(`   - Tracks de áudio no stream: ${stream?.getAudioTracks().length || 0}`);
+    
     const peer = new SimplePeer({
       initiator,
       trickle: false,
@@ -84,6 +92,7 @@ export function useWebRTC(socket: any) {
     });
 
     peer.on('signal', (signal) => {
+      console.log(`📤 Enviando sinal para ${userId}:`, signal.type);
       socket.emit('signal', {
         targetUserId: userId,
         signal,
@@ -110,8 +119,16 @@ export function useWebRTC(socket: any) {
       }, 100);
     });
 
+    peer.on('connect', () => {
+      console.log(`✅ Peer conectado com ${userId}!`);
+    });
+
     peer.on('error', (err) => {
-      console.error('Peer error:', err);
+      console.error(`❌ Erro no peer com ${userId}:`, err);
+    });
+
+    peer.on('close', () => {
+      console.log(`🔌 Peer fechado com ${userId}`);
     });
 
     setPeers((prev) => new Map(prev).set(userId, { userId, peer }));
@@ -120,13 +137,23 @@ export function useWebRTC(socket: any) {
   };
 
   const handleSignal = (userId: string, signal: any) => {
+    console.log(`📥 Recebeu sinal de ${userId}:`, signal.type);
+    
     let peer = peers.get(userId)?.peer;
     
     if (!peer) {
+      console.log(`   ⚠️ Peer não existe, criando como RECEPTOR para ${userId}`);
       peer = createPeer(userId, false, localStreamRef.current || undefined);
+    } else {
+      console.log(`   ✅ Peer já existe, processando sinal`);
     }
     
-    peer.signal(signal);
+    try {
+      peer.signal(signal);
+      console.log(`   ✅ Sinal processado com sucesso`);
+    } catch (err) {
+      console.error(`   ❌ Erro ao processar sinal:`, err);
+    }
   };
 
   // Update spatial audio based on distance
