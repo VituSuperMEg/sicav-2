@@ -96,6 +96,12 @@ export function useWebRTC(socket: any) {
       });
       
       localStreamRef.current = stream;
+      console.log('🔧 Stream local salvo no ref:', {
+        hasStream: !!stream,
+        audioTracks: stream?.getAudioTracks().length,
+        active: stream?.active,
+        id: stream?.id
+      });
       return stream;
     } catch (error) {
       console.error('Error getting local stream:', error);
@@ -109,6 +115,8 @@ export function useWebRTC(socket: any) {
     console.log(`   - Iniciador: ${initiator}`);
     console.log(`   - Tem stream: ${!!stream}`);
     console.log(`   - Tracks de áudio no stream: ${stream?.getAudioTracks().length || 0}`);
+    console.log(`   - Stream ativo: ${stream?.active}`);
+    console.log(`   - Stream ID: ${stream?.id}`);
     
     const peer = new SimplePeer({
       initiator,
@@ -118,6 +126,7 @@ export function useWebRTC(socket: any) {
 
     peer.on('signal', (signal) => {
       console.log(`📤 Enviando sinal para ${userId}:`, signal.type);
+      console.log(`   - Sinal completo:`, signal);
       socket.emit('signal', {
         targetUserId: userId,
         signal,
@@ -195,6 +204,7 @@ export function useWebRTC(socket: any) {
 
     peer.on('connect', () => {
       console.log(`✅ Peer conectado com ${userId}!`);
+      console.log(`   - Conexão estabelecida, aguardando stream...`);
     });
 
     peer.on('error', (err) => {
@@ -212,6 +222,7 @@ export function useWebRTC(socket: any) {
 
   const handleSignal = (userId: string, signal: any) => {
     console.log(`📥 Recebeu sinal de ${userId}:`, signal.type);
+    console.log(`   - Sinal completo:`, signal);
     
     let peerConnection = peers.get(userId);
     let peer = peerConnection?.peer;
@@ -221,8 +232,10 @@ export function useWebRTC(socket: any) {
       console.log(`   Stream local disponível:`, !!localStreamRef.current);
       if (localStreamRef.current) {
         console.log(`   Tracks de áudio no stream local:`, localStreamRef.current.getAudioTracks().length);
+        console.log(`   Stream local ativo:`, localStreamRef.current.active);
       }
       peer = createPeer(userId, false, localStreamRef.current || undefined);
+      console.log(`   ✅ Peer receptor criado:`, !!peer);
     } else {
       console.log(`   ✅ Peer já existe, processando sinal`);
     }
@@ -230,6 +243,7 @@ export function useWebRTC(socket: any) {
     try {
       peer.signal(signal);
       console.log(`   ✅ Sinal processado com sucesso`);
+      console.log(`   - Peer estado:`, peer.connected ? 'conectado' : 'conectando');
     } catch (err) {
       console.error(`   ❌ Erro ao processar sinal:`, err);
     }
