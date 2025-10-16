@@ -152,13 +152,47 @@ export default function RoomPage() {
     }
   };
 
-  // Quando um novo usuário entra, cria peer automaticamente SE o áudio estiver ativado
+  // Quando recebe a lista inicial de usuários ou um novo usuário entra
   useEffect(() => {
     if (!socket || !currentUser) {
       console.log('⏸️ Socket ou currentUser não disponível');
       return;
     }
 
+    // Handler quando recebe lista de usuários ao entrar na sala
+    const handleUsersUpdate = (users: User[]) => {
+      console.log('📋 Recebeu lista de usuários:', users.length);
+      users.forEach(user => {
+        console.log(`   - ${user.name} (${user.id})`);
+      });
+      
+      if (!audioSettings.enabled) {
+        console.log('🔇 Áudio desativado, não criando peers agora');
+        return;
+      }
+      
+      // Cria peers com todos os outros usuários na sala
+      users.forEach(user => {
+        if (user.id === currentUser.id) {
+          console.log('⏭️ Ignorando usuário (sou eu):', user.name);
+          return;
+        }
+        
+        if (peers.has(user.id)) {
+          console.log('⏭️ Peer já existe para:', user.name);
+          return;
+        }
+        
+        console.log('🔗 Criando peer INICIADOR para usuário existente:', user.name);
+        getLocalStream(true, videoSettings.enabled).then(stream => {
+          if (stream) {
+            createPeer(user.id, true, stream);
+          }
+        });
+      });
+    };
+
+    // Handler quando um novo usuário entra
     const handleUserJoined = (user: User) => {
       console.log('🆕 Evento user:joined recebido:', user.name, user.id);
       console.log('   - Meu ID:', currentUser.id);
@@ -193,11 +227,13 @@ export default function RoomPage() {
       });
     };
 
-    console.log('👂 Escutando evento user:joined... (áudio:', audioSettings.enabled, ')');
+    console.log('👂 Escutando eventos... (áudio:', audioSettings.enabled, ')');
+    socket.on('users:update', handleUsersUpdate);
     socket.on('user:joined', handleUserJoined);
 
     return () => {
-      console.log('🔇 Parando de escutar user:joined');
+      console.log('🔇 Parando de escutar eventos');
+      socket.off('users:update', handleUsersUpdate);
       socket.off('user:joined', handleUserJoined);
     };
   }, [socket, currentUser, audioSettings.enabled, videoSettings.enabled, peers, createPeer, getLocalStream]);
