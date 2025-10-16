@@ -139,6 +139,29 @@ export default function RoomPage() {
     }
   };
 
+  // Quando um novo usuário entra, cria peer automaticamente SE o áudio estiver ativado
+  useEffect(() => {
+    if (!socket || !currentUser || !audioSettings.enabled) return;
+
+    const handleUserJoined = (user: User) => {
+      if (user.id !== currentUser.id && !peers.has(user.id)) {
+        console.log('🆕 Novo usuário entrou:', user.name, '- Criando peer...');
+        // Pega o stream local atual e cria peer
+        getLocalStream(true, videoSettings.enabled).then(stream => {
+          if (stream) {
+            createPeer(user.id, true, stream);
+          }
+        });
+      }
+    };
+
+    socket.on('user-joined', handleUserJoined);
+
+    return () => {
+      socket.off('user-joined', handleUserJoined);
+    };
+  }, [socket, currentUser, audioSettings.enabled, videoSettings.enabled, peers, createPeer, getLocalStream]);
+
   // Update spatial audio when users move
   useEffect(() => {
     const users = useRoomStore.getState().users;

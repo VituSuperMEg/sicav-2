@@ -22,10 +22,27 @@ export function useWebRTC(socket: any) {
       handleSignal(userId, signal);
     });
 
+    // Listen for user leaving to cleanup audio elements
+    socket.on('user-left', (userId: string) => {
+      console.log('👋 Usuário saiu:', userId, '- Limpando áudio...');
+      const audioElement = document.getElementById(`audio-${userId}`);
+      if (audioElement) {
+        audioElement.remove();
+      }
+    });
+
     return () => {
       socket.off('signal');
+      socket.off('user-left');
       // Cleanup peers
-      peers.forEach(({ peer }) => peer.destroy());
+      peers.forEach(({ peer, userId }) => {
+        peer.destroy();
+        // Remove audio element
+        const audioElement = document.getElementById(`audio-${userId}`);
+        if (audioElement) {
+          audioElement.remove();
+        }
+      });
     };
   }, [socket, currentUser]);
 
@@ -68,6 +85,10 @@ export function useWebRTC(socket: any) {
     });
 
     peer.on('stream', (remoteStream) => {
+      console.log('📡 Stream recebido de:', userId);
+      console.log('   - Tracks de áudio:', remoteStream.getAudioTracks().length);
+      console.log('   - Tracks de vídeo:', remoteStream.getVideoTracks().length);
+      
       setPeers((prev) => {
         const updated = new Map(prev);
         const existing = updated.get(userId);
@@ -77,8 +98,10 @@ export function useWebRTC(socket: any) {
         return updated;
       });
       
-      // Apply spatial audio
-      updateSpatialAudio(userId, remoteStream);
+      // Apply spatial audio IMEDIATAMENTE
+      setTimeout(() => {
+        updateSpatialAudio(userId, remoteStream);
+      }, 100);
     });
 
     peer.on('error', (err) => {
@@ -105,16 +128,23 @@ export function useWebRTC(socket: any) {
     const otherUser = users.get(userId);
     if (!otherUser || !currentUser) return;
 
-    const audioTrack = stream.getAudioTracks()[0];
-    if (!audioTrack) return;
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      console.log('❌ Nenhum track de áudio encontrado para', userId);
+      return;
+    }
 
-    // Create audio context for spatial audio
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const gainNode = audioContext.createGain();
+    // Procura ou cria elemento de áudio para este usuário
+    let audioElement = document.getElementById(`audio-${userId}`) as HTMLAudioElement;
     
-    source.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    if (!audioElement) {
+      console.log('🔊 Criando elemento de áudio para', otherUser.name);
+      audioElement = document.createElement('audio');
+      audioElement.id = `audio-${userId}`;
+      audioElement.autoplay = true;
+      audioElement.srcObject = stream;
+      document.body.appendChild(audioElement);
+    }
 
     // Calculate volume based on distance
     const inProximity = isInProximity(
@@ -129,9 +159,10 @@ export function useWebRTC(socket: any) {
         Math.pow(currentUser.position.y - otherUser.position.y, 2)
       );
       const volume = calculateAudioVolume(distance, audioSettings.proximityRadius);
-      gainNode.gain.value = volume * audioSettings.volume;
+      audioElement.volume = volume * audioSettings.volume;
+      console.log(`🔊 Áudio de ${otherUser.name}: volume=${Math.round(volume * 100)}%, distância=${Math.round(distance)}px`);
     } else {
-      gainNode.gain.value = 0;
+      audioElement.volume = 0;
     }
   };
 
