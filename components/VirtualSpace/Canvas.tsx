@@ -51,25 +51,32 @@ export default function Canvas() {
 
   // Auto-navegação para o alvo
   useEffect(() => {
-    if (!targetPosition || !isNavigating || !currentUser) {
+    if (!targetPosition || !isNavigating) {
       return;
     }
 
     console.log('✅ Iniciando navegação automática para:', targetPosition);
 
     let animationFrameId: number;
+    let lastTime = Date.now();
     
     const navigate = () => {
-      const user = useRoomStore.getState().currentUser;
+      const now = Date.now();
+      const deltaTime = now - lastTime;
+      lastTime = now;
+
+      // Pega a posição ATUAL do store
+      const store = useRoomStore.getState();
+      const user = store.currentUser;
+      
       if (!user) {
+        console.log('❌ Usuário não encontrado no store');
         return;
       }
 
       const dx = targetPosition.x - user.position.x;
       const dy = targetPosition.y - user.position.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-
-      console.log('🚶 Navegando... Distância:', Math.round(distance), 'px');
 
       // Se chegou perto do destino, para
       if (distance < MOVE_SPEED * 2) {
@@ -83,17 +90,27 @@ export default function Canvas() {
       const dirX = dx / distance;
       const dirY = dy / distance;
 
-      // Move na direção do alvo
-      let newX = user.position.x + dirX * MOVE_SPEED;
-      let newY = user.position.y + dirY * MOVE_SPEED;
+      // Move na direção do alvo (velocidade ajustada por frame)
+      const speed = deltaTime > 0 ? MOVE_SPEED : MOVE_SPEED;
+      let newX = user.position.x + dirX * speed;
+      let newY = user.position.y + dirY * speed;
 
       // Mantém dentro dos limites
       newX = Math.max(AVATAR_SIZE, Math.min(CANVAS_WIDTH - AVATAR_SIZE, newX));
       newY = Math.max(AVATAR_SIZE, Math.min(CANVAS_HEIGHT - AVATAR_SIZE, newY));
 
       const newPosition: Position = { x: newX, y: newY };
-      updateUserPositionRef.current?.(user.id, newPosition);
-      emitMoveRef.current?.(newPosition);
+      
+      // Atualiza DIRETAMENTE no store usando a ação do Zustand
+      store.updateUserPosition(user.id, newPosition);
+      
+      // Emite para o servidor
+      const emitFn = emitMoveRef.current;
+      if (emitFn) {
+        emitFn(newPosition);
+      }
+
+      console.log('📍 Nova posição:', Math.round(newX), Math.round(newY), '| Distância restante:', Math.round(distance));
 
       // Continua navegando
       animationFrameId = requestAnimationFrame(navigate);
@@ -106,7 +123,7 @@ export default function Canvas() {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [targetPosition, isNavigating, currentUser]);
+  }, [targetPosition, isNavigating]);
 
   // Movimento manual com teclado
   useEffect(() => {

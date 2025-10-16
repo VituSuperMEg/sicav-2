@@ -63,7 +63,14 @@ export const useRoomStore = create<RoomState>((set) => ({
       if (user) {
         newUsers.set(userId, { ...user, position });
       }
-      return { users: newUsers };
+      
+      // Se for o usuário atual, atualiza também o currentUser
+      const updates: any = { users: newUsers };
+      if (state.currentUser && state.currentUser.id === userId) {
+        updates.currentUser = { ...state.currentUser, position };
+      }
+      
+      return updates;
     }),
   
   addUser: (user) =>
