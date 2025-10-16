@@ -23,7 +23,7 @@ export default function RoomPage() {
   
   const setCurrentUser = useRoomStore((state) => state.setCurrentUser);
   const setRoomId = useRoomStore((state) => state.setRoomId);
-  const currentUser = useRoomStore((state) => state.currentUser);
+  const currentUserId = useRoomStore((state) => state.currentUser?.id);
   const audioEnabled = useRoomStore((state) => state.audioSettings.enabled);
   const videoEnabled = useRoomStore((state) => state.videoSettings.enabled);
   const { socket } = useSocket(roomId);
@@ -201,6 +201,7 @@ export default function RoomPage() {
 
   // Quando recebe a lista inicial de usuários ou um novo usuário entra
   useEffect(() => {
+    const currentUser = useRoomStore.getState().currentUser;
     if (!socket || !currentUser) {
       console.log('⏸️ Socket ou currentUser não disponível');
       return;
@@ -306,7 +307,7 @@ export default function RoomPage() {
       socket.off('users:update', handleUsersUpdate);
       socket.off('user:joined', handleUserJoined);
     };
-  }, [socket, currentUser, audioEnabled, videoEnabled]);
+  }, [socket, currentUserId, audioEnabled, videoEnabled]);
 
   // Update spatial audio when users move
   useEffect(() => {
@@ -317,8 +318,9 @@ export default function RoomPage() {
         updateSpatialAudioRef.current(user.id, peerConnection.stream);
       }
     });
-  }, [currentUser?.position]);
+  }, [currentUserId]);
 
+  const currentUser = useRoomStore.getState().currentUser;
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">

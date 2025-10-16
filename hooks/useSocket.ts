@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useRoomStore } from '@/store/useRoomStore';
 import { User } from '@/types';
@@ -6,6 +6,7 @@ import { SOCKET_EVENTS } from '@/lib/constants';
 
 export function useSocket(roomId: string | null) {
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const currentUser = useRoomStore((state) => state.currentUser);
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export function useSocket(roomId: string | null) {
     });
 
     socketRef.current = socket;
+    setSocket(socket);
 
     socket.on('connect', () => {
       console.log('Connected to server');
@@ -55,6 +57,7 @@ export function useSocket(roomId: string | null) {
 
     return () => {
       socket.disconnect();
+      setSocket(null);
     };
   }, [roomId, currentUser]);
 
@@ -67,6 +70,6 @@ export function useSocket(roomId: string | null) {
     }
   };
 
-  return { socket: socketRef.current, emitMove };
+  return { socket, emitMove };
 }
 

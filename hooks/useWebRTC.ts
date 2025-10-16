@@ -13,15 +13,18 @@ export function useWebRTC(socket: any) {
   console.log('🔌 useWebRTC hook inicializado');
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
-  const currentUser = useRoomStore((state) => state.currentUser);
-  const users = useRoomStore((state) => state.users);
-  const audioSettings = useRoomStore((state) => state.audioSettings);
+  const currentUserRef = useRef(useRoomStore.getState().currentUser);
   
   console.log('   Socket disponível?', !!socket);
   console.log('   Peers atuais:', peers.size);
+  console.log('   CurrentUser ID:', currentUserRef.current?.id);
 
   useEffect(() => {
-    if (!socket || !currentUser) return;
+    currentUserRef.current = useRoomStore.getState().currentUser;
+  });
+
+  useEffect(() => {
+    if (!socket || !currentUserRef.current) return;
 
     console.log('🎧 Começando a escutar sinais WebRTC...');
 
@@ -69,7 +72,7 @@ export function useWebRTC(socket: any) {
         }
       });
     };
-  }, [socket, currentUser]);
+  }, [socket]);
 
   // Get local media stream
   const getLocalStream = useCallback(async (audio = true, video = false) => {
