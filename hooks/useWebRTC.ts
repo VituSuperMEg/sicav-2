@@ -14,10 +14,12 @@ export function useWebRTC(socket: any) {
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentUserRef = useRef(useRoomStore.getState().currentUser);
+  const initializedRef = useRef(false);
   
   console.log('   Socket disponível?', !!socket);
   console.log('   Peers atuais:', peers.size);
   console.log('   CurrentUser ID:', currentUserRef.current?.id);
+  console.log('   Já inicializado?', initializedRef.current);
 
   useEffect(() => {
     currentUserRef.current = useRoomStore.getState().currentUser;
@@ -25,7 +27,13 @@ export function useWebRTC(socket: any) {
 
   useEffect(() => {
     if (!socket || !currentUserRef.current) return;
-
+    
+    if (initializedRef.current) {
+      console.log('⚠️ Hook já inicializado, pulando...');
+      return;
+    }
+    
+    initializedRef.current = true;
     console.log('🎧 Começando a escutar sinais WebRTC...');
 
     // Listen for WebRTC signals
@@ -118,6 +126,13 @@ export function useWebRTC(socket: any) {
     console.log(`   - Stream ativo: ${stream?.active}`);
     console.log(`   - Stream ID: ${stream?.id}`);
     
+    // Verifica se já existe um peer para este usuário
+    const existingPeer = peers.get(userId);
+    if (existingPeer && !existingPeer.peer.destroyed) {
+      console.log(`   ⚠️ Peer já existe e não está destruído, destruindo primeiro...`);
+      existingPeer.peer.destroy();
+    }
+    
     const peer = new SimplePeer({
       initiator,
       trickle: false,
@@ -209,6 +224,20 @@ export function useWebRTC(socket: any) {
 
     peer.on('error', (err) => {
       console.error(`❌ Erro no peer com ${userId}:`, err);
+      console.log(`   - Tipo do erro:`, err.name);
+      console.log(`   - Mensagem:`, err.message);
+      
+      // Se for erro de estado, destroi o peer e recria
+      if (err.name === 'InvalidStateError' || err.message.includes('wrong state')) {
+        console.log(`   🔄 Recriando peer devido a erro de estado...`);
+        peer.destroy();
+        
+        // Recria o peer após um pequeno delay
+        setTimeout(() => {
+          const newPeer = createPeer(userId, initiator, stream);
+          console.log(`   ✅ Peer recriado:`, !!newPeer);
+        }, 100);
+      }
     });
 
     peer.on('close', () => {
@@ -238,6 +267,11 @@ export function useWebRTC(socket: any) {
       console.log(`   ✅ Peer receptor criado:`, !!peer);
     } else {
       console.log(`   ✅ Peer já existe, processando sinal`);
+      // Verifica se o peer não está em estado de erro
+      if (peer.destroyed) {
+        console.log(`   ⚠️ Peer destruído, recriando...`);
+        peer = createPeer(userId, false, localStreamRef.current || undefined);
+      }
     }
     
     try {
