@@ -23,6 +23,7 @@ export default function RoomPage() {
   
   const { setCurrentUser, setRoomId, currentUser, audioSettings, videoSettings } = useRoomStore();
   const { socket } = useSocket(roomId);
+  const webRTCHook = useWebRTC(socket);
   const { 
     getLocalStream, 
     startScreenShare, 
@@ -30,7 +31,14 @@ export default function RoomPage() {
     updateSpatialAudio,
     createPeer,
     peers,
-  } = useWebRTC(socket);
+  } = webRTCHook;
+  
+  console.log('🔍 Hook WebRTC retornou:', {
+    hasGetLocalStream: !!getLocalStream,
+    hasCreatePeer: !!createPeer,
+    createPeerType: typeof createPeer,
+    peersSize: peers?.size
+  });
 
   useEffect(() => {
     // Load user data from localStorage
@@ -97,6 +105,10 @@ export default function RoomPage() {
           console.log('👤 Processando usuário:', user.name, user.id);
           console.log('   - Já tenho peer?', peers.has(user.id));
           
+          console.log('🔍 Verificando peer para', user.name, '- Existe?', peers.has(user.id));
+          console.log('   createPeer é:', typeof createPeer);
+          console.log('   createPeer função:', createPeer);
+          
           if (!peers.has(user.id)) {
             console.log('🔗 Criando peer INICIADOR com', user.name);
             console.log('   Chamando createPeer com:', {
@@ -105,15 +117,20 @@ export default function RoomPage() {
               hasStream: !!stream,
               audioTracks: stream?.getAudioTracks().length
             });
-            const peer = createPeer(user.id, true, stream);
-            console.log('   createPeer retornou:', peer);
+            
+            console.log('⚡ PRESTES A CHAMAR createPeer...');
+            try {
+              const peer = createPeer(user.id, true, stream);
+              console.log('✅ createPeer retornou:', peer);
+            } catch (err) {
+              console.error('❌ ERRO ao chamar createPeer:', err);
+            }
           } else {
             console.log('⏭️ Peer já existe, pulando');
           }
         });
         
         if (store.users.size === 0) {
-          console.log('ℹ️ Nenhum outro usuário na sala ainda');
         }
       } else {
         console.error('❌ Falha ao ativar microfone');
