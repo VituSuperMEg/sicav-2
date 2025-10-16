@@ -22,12 +22,26 @@ const httpServer = createServer(app);
 const allowedOrigins = [
   'http://localhost:3000',
   'https://localhost:3000',
+  'http://127.0.0.1:3000',
   process.env.FRONTEND_URL || '',
 ].filter(Boolean);
 
+console.log('🔒 CORS configurado para:', allowedOrigins);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      
+      // Permite se está na lista OU em desenvolvimento
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        console.log('❌ Origem bloqueada:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
