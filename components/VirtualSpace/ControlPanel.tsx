@@ -10,15 +10,15 @@ interface ControlPanelProps {
   onLeave: () => void;
   onStartScreenShare: () => void;
   onStopScreenShare: () => void;
+  onToggleAudio: () => void;
+  onToggleVideo: () => void;
 }
 
-export default function ControlPanel({ onLeave, onStartScreenShare, onStopScreenShare }: ControlPanelProps) {
+export default function ControlPanel({ onLeave, onStartScreenShare, onStopScreenShare, onToggleAudio, onToggleVideo }: ControlPanelProps) {
   const { 
     audioSettings, 
     videoSettings, 
     screenShareSettings,
-    toggleAudio, 
-    toggleVideo,
     users
   } = useRoomStore();
   
@@ -46,7 +46,7 @@ export default function ControlPanel({ onLeave, onStartScreenShare, onStopScreen
         {/* Center - Main controls */}
         <div className="flex items-center gap-3">
           <IconButton
-            onClick={toggleAudio}
+            onClick={onToggleAudio}
             active={audioSettings.enabled}
             variant={audioSettings.enabled ? 'primary' : 'secondary'}
             size="lg"
@@ -60,7 +60,7 @@ export default function ControlPanel({ onLeave, onStartScreenShare, onStopScreen
           </IconButton>
 
           <IconButton
-            onClick={toggleVideo}
+            onClick={onToggleVideo}
             active={videoSettings.enabled}
             variant={videoSettings.enabled ? 'primary' : 'secondary'}
             size="lg"

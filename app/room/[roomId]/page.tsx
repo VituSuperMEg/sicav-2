@@ -21,13 +21,15 @@ export default function RoomPage() {
   const roomId = params.roomId as string;
   const [copied, setCopied] = useState(false);
   
-  const { setCurrentUser, setRoomId, currentUser } = useRoomStore();
+  const { setCurrentUser, setRoomId, currentUser, audioSettings, videoSettings } = useRoomStore();
   const { socket } = useSocket(roomId);
   const { 
     getLocalStream, 
     startScreenShare, 
     stopScreenShare,
     updateSpatialAudio,
+    createPeer,
+    peers,
   } = useWebRTC(socket);
 
   useEffect(() => {
@@ -76,14 +78,77 @@ export default function RoomPage() {
     useRoomStore.getState().stopScreenShare();
   };
 
+  // Handle toggle audio - REALMENTE ativa o microfone
+  const handleToggleAudio = async () => {
+    const store = useRoomStore.getState();
+    const newAudioState = !audioSettings.enabled;
+    
+    store.toggleAudio(); // Atualiza o estado visual
+    
+    if (newAudioState) {
+      console.log('🎤 Ativando microfone...');
+      const stream = await getLocalStream(true, videoSettings.enabled);
+      if (stream) {
+        console.log('✅ Microfone ativado!');
+        // Cria peers com todos os usuários conectados
+        const users = store.users;
+        users.forEach((user) => {
+          if (!peers.has(user.id)) {
+            console.log('🔗 Criando peer com', user.name);
+            createPeer(user.id, true, stream);
+          }
+        });
+      } else {
+        console.error('❌ Falha ao ativar microfone');
+        store.toggleAudio(); // Reverte o estado
+      }
+    } else {
+      console.log('🔇 Desativando microfone...');
+      // Para todos os tracks de áudio
+      const stream = await getLocalStream(false, videoSettings.enabled);
+    }
+  };
+
+  // Handle toggle video - REALMENTE ativa a câmera
+  const handleToggleVideo = async () => {
+    const store = useRoomStore.getState();
+    const newVideoState = !videoSettings.enabled;
+    
+    store.toggleVideo(); // Atualiza o estado visual
+    
+    if (newVideoState) {
+      console.log('📹 Ativando vídeo...');
+      const stream = await getLocalStream(audioSettings.enabled, true);
+      if (stream) {
+        console.log('✅ Vídeo ativado!');
+        // Cria peers com todos os usuários conectados
+        const users = store.users;
+        users.forEach((user) => {
+          if (!peers.has(user.id)) {
+            console.log('🔗 Criando peer com', user.name);
+            createPeer(user.id, true, stream);
+          }
+        });
+      } else {
+        console.error('❌ Falha ao ativar vídeo');
+        store.toggleVideo(); // Reverte o estado
+      }
+    } else {
+      console.log('🔇 Desativando vídeo...');
+      const stream = await getLocalStream(audioSettings.enabled, false);
+    }
+  };
+
   // Update spatial audio when users move
   useEffect(() => {
     const users = useRoomStore.getState().users;
     users.forEach((user) => {
-      // Update audio for each user
-      // This would be called from the WebRTC hook
+      const peerConnection = peers.get(user.id);
+      if (peerConnection?.stream) {
+        updateSpatialAudio(user.id, peerConnection.stream);
+      }
     });
-  }, [useRoomStore.getState().users]);
+  }, [currentUser?.position, peers, updateSpatialAudio]);
 
   if (!currentUser) {
     return (
@@ -154,6 +219,8 @@ export default function RoomPage() {
         onLeave={handleLeaveRoom}
         onStartScreenShare={handleStartScreenShare}
         onStopScreenShare={handleStopScreenShare}
+        onToggleAudio={handleToggleAudio}
+        onToggleVideo={handleToggleVideo}
       />
     </main>
   );
