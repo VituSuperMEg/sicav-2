@@ -140,8 +140,8 @@ export function useWebRTC(socket: any) {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          cursor: 'always',
-        },
+          cursor: 'always' as any,
+        } as any,
         audio: false,
       });
 
