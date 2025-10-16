@@ -14,13 +14,18 @@ export default function Canvas() {
   const [targetPosition, setTargetPosition] = useState<Position | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const currentUserRef = useRef<any>(null);
+  const updateUserPositionRef = useRef<any>(null);
+  const emitMoveRef = useRef<any>(null);
+  
   const { currentUser, users, updateUserPosition } = useRoomStore();
   const { emitMove } = useSocket(useRoomStore((state) => state.roomId));
 
-  // Atualizar ref quando currentUser mudar
+  // Atualizar refs quando mudarem
   useEffect(() => {
     currentUserRef.current = currentUser;
-  }, [currentUser]);
+    updateUserPositionRef.current = updateUserPosition;
+    emitMoveRef.current = emitMove;
+  }, [currentUser, updateUserPosition, emitMove]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,18 +51,29 @@ export default function Canvas() {
 
   // Auto-navegação para o alvo
   useEffect(() => {
-    if (!targetPosition || !isNavigating) return;
+    if (!targetPosition || !isNavigating || !currentUser) {
+      return;
+    }
 
-    const interval = setInterval(() => {
-      const user = currentUserRef.current;
-      if (!user) return;
+    console.log('✅ Iniciando navegação automática para:', targetPosition);
+
+    let animationFrameId: number;
+    
+    const navigate = () => {
+      const user = useRoomStore.getState().currentUser;
+      if (!user) {
+        return;
+      }
 
       const dx = targetPosition.x - user.position.x;
       const dy = targetPosition.y - user.position.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
+      console.log('🚶 Navegando... Distância:', Math.round(distance), 'px');
+
       // Se chegou perto do destino, para
       if (distance < MOVE_SPEED * 2) {
+        console.log('🎯 Chegou ao destino!');
         setIsNavigating(false);
         setTargetPosition(null);
         return;
@@ -76,18 +92,30 @@ export default function Canvas() {
       newY = Math.max(AVATAR_SIZE, Math.min(CANVAS_HEIGHT - AVATAR_SIZE, newY));
 
       const newPosition: Position = { x: newX, y: newY };
-      updateUserPosition(user.id, newPosition);
-      emitMove(newPosition);
-    }, 1000 / 60); // 60 FPS
+      updateUserPositionRef.current?.(user.id, newPosition);
+      emitMoveRef.current?.(newPosition);
 
-    return () => clearInterval(interval);
-  }, [targetPosition, isNavigating, emitMove, updateUserPosition]);
+      // Continua navegando
+      animationFrameId = requestAnimationFrame(navigate);
+    };
+
+    animationFrameId = requestAnimationFrame(navigate);
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [targetPosition, isNavigating, currentUser]);
 
   // Movimento manual com teclado
   useEffect(() => {
     const interval = setInterval(() => {
       const user = currentUserRef.current;
-      if (!user) return;
+      const updatePos = updateUserPositionRef.current;
+      const emitMv = emitMoveRef.current;
+      
+      if (!user || !updatePos || !emitMv) return;
 
       // Se está navegando automaticamente, cancela ao pressionar tecla
       if (keys.size > 0 && isNavigating) {
@@ -118,16 +146,22 @@ export default function Canvas() {
 
       if (moved) {
         const newPosition: Position = { x: newX, y: newY };
-        updateUserPosition(user.id, newPosition);
-        emitMove(newPosition);
+        updatePos(user.id, newPosition);
+        emitMv(newPosition);
       }
     }, 1000 / 60); // 60 FPS
 
     return () => clearInterval(interval);
-  }, [keys, isNavigating, emitMove, updateUserPosition]);
+  }, [keys, isNavigating]);
 
   const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!currentUserRef.current || !canvasRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!currentUserRef.current || !canvasRef.current) {
+      console.log('Sem usuário ou canvas ref');
+      return;
+    }
 
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = CANVAS_WIDTH / rect.width;
@@ -136,11 +170,18 @@ export default function Canvas() {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
-    console.log('Duplo clique detectado! Navegando para:', { x, y });
+    console.log('=== DUPLO CLIQUE DETECTADO! ===');
+    console.log('Posição clicada:', { x, y });
+    console.log('Posição atual do usuário:', currentUserRef.current.position);
+    console.log('Rect:', rect);
+    console.log('Scale:', { scaleX, scaleY });
 
     // Inicia navegação automática
-    setTargetPosition({ x, y });
+    const target = { x, y };
+    setTargetPosition(target);
     setIsNavigating(true);
+    
+    console.log('Estado atualizado - targetPosition:', target, 'isNavigating:', true);
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
