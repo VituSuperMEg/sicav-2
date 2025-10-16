@@ -1,0 +1,15 @@
+# Configuração para deploy automático no Render
+services:
+  - type: web
+    name: virtual-meet-server
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        sync: false
+

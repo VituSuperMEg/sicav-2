@@ -1,0 +1,21 @@
+Para adicionar screenshots do projeto:
+
+1. Tire prints da tela inicial e da sala
+2. Salve como:
+   - screenshot-home.png (tela inicial)
+   - screenshot-office.png (escritório virtual)
+   - screenshot-minimap.png (detalhes do minimapa)
+
+3. Adicione ao README.md:
+
+## 📸 Screenshots
+
+### Tela Inicial
+![Home](./public/screenshot-home.png)
+
+### Escritório Virtual
+![Office](./public/screenshot-office.png)
+
+### Minimapa e Proximidade
+![Minimap](./public/screenshot-minimap.png)
+
