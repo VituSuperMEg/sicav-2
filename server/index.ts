@@ -56,38 +56,48 @@ app.get('/health', (req, res) => {
 const rooms = new Map<string, Map<string, User>>();
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('\n🔌 User connected:', socket.id);
 
   const { roomId, userId } = socket.handshake.query as { roomId: string; userId: string };
+  console.log(`   Room ID: ${roomId}`);
+  console.log(`   User ID: ${userId}`);
 
   if (!roomId) {
-    console.error('No room ID provided');
+    console.error('❌ No room ID provided');
     return;
   }
 
   // Join room
   socket.join(roomId);
+  console.log(`   ✅ Joined room: ${roomId}`);
 
   // Initialize room if it doesn't exist
   if (!rooms.has(roomId)) {
     rooms.set(roomId, new Map());
+    console.log(`   🆕 Created new room: ${roomId}`);
   }
 
   const room = rooms.get(roomId)!;
+  console.log(`   👥 Current users in room: ${room.size}`);
 
   // Handle user joined
   socket.on('user:joined', (user: User) => {
-    console.log(`User ${user.name} joined room ${roomId}`);
+    console.log(`\n🆕 User ${user.name} (${user.id}) joined room ${roomId}`);
+    console.log(`   Socket ID: ${socket.id}`);
     
     // Add user to room
     room.set(user.id, user);
+    console.log(`   👥 Total users in room now: ${room.size}`);
+    console.log(`   📋 Users: ${Array.from(room.values()).map(u => u.name).join(', ')}`);
 
     // Send current users to the new user
     const users = Array.from(room.values());
     socket.emit('users:update', users);
+    console.log(`   ✅ Sent ${users.length} users to ${user.name}`);
 
     // Notify other users
     socket.to(roomId).emit('user:joined', user);
+    console.log(`   📢 Notified other users in room about ${user.name}`);
   });
 
   // Handle user moved
